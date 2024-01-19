@@ -50,10 +50,18 @@ int main()
 
     while (1)
     {
+        #if 0
         strncpy(buf, "加油 254", sizeof(buf) - 1);
         write(sockfd, buf, sizeof(buf));
         read(sockfd, recvBuf, sizeof(recvBuf) - 1);
         printf("recv:%s\n", recvBuf);
+        #else
+        /* 字节 */
+        int num = 0x12345678;
+        printf("num:%d\n", num);
+        write(sockfd, &num, sizeof(num));
+
+        #endif
     }
     
 
