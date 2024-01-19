@@ -9,12 +9,16 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <pthread.h>
+#include "threadPool.h"
 
 
 #define SERVER_PORT 6666
 #define MAX_LISTEN 128
 #define LOCAL_IPADDRESS " 127.0.0.1"
 #define BUF_SIZE 128
+#define MIN_THREADS     5
+#define MAX_THREADS     10
+#define QUEUE_CAPACITY  100
 
 void * threadHandle(void *arg)
 {
@@ -73,6 +77,10 @@ void * threadHandle(void *arg)
 
 int main()
 {
+    /* 初始化线程池 */
+    threadpool_t pool;
+    threadPoolInit(&pool, MIN_THREADS, MAX_LISTEN, QUEUE_CAPACITY);
+    
 
     // /*  信号注册 */
     // signal(SIGINT, sigHander);
@@ -130,6 +138,7 @@ int main()
     int acceptfd = 0;
     while (1)
     {
+        /* 局部变量不行 */
         socklen_t clientAddressLen = 0;
         acceptfd = accept(sockfd, (struct sockaddr *)&clientAddress, &clientAddressLen);
         if (acceptfd == -1)
@@ -137,7 +146,8 @@ int main()
             perror("accept error");
             exit(-1);
         }
-        /* 每个线程服务一个客户 */
+    #if 0
+        /* 每个线程服务一个客户,来一个客户就开辟一个线程，但这种情况极其消耗资源 */
         pthread_t pid;
         ret = pthread_create(&pid, NULL, threadHandle, (void *)&acceptfd);
         if (ret != 0)
@@ -145,9 +155,13 @@ int main()
             perror("thread error");
             exit(-1);
         }
+    #else
+        /* 添加任务到任务队列 */
+        threadPoolAddTask(&pool, threadHandle, (void *)&acceptfd);//acceptfd
+    #endif
     }
-    
-
+    /* 释放线程池 */
+    threadOPoolDestroy(&pool);
     close(sockfd);
 
     return 0;
