@@ -53,7 +53,7 @@ int main()
         strncpy(buf, "123456", sizeof(buf) - 1);
         write(sockfd, buf, sizeof(buf));
 
-        read(sockfd, recvBuf, sizeof(recvBuf) - 1);
+        read(sockfd, recvBuf, sizeof(recvBuf));
         printf("recv:%s\n", recvBuf);
 
         sleep(5);

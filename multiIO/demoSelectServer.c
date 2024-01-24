@@ -32,7 +32,7 @@ int main()
     localAddress.sin_addr.s_addr =htonl(INADDR_ANY); //可以接受任何地址
     /* 绑定连接 */
     socklen_t localAddressLen = sizeof(localAddress);
-    int ret = bind(sockfd, &localAddress, localAddressLen);
+    int ret = bind(sockfd, (struct sockaddr *)&localAddress, localAddressLen);
     if (ret == -1)
     {
         perror("bind error");
@@ -108,7 +108,7 @@ int main()
                     printf("客户端断开连接....\n");
                     /* 将该通信句柄从监听的读集合中删除 */
                     FD_CLR(idx, &readSet);
-                    cloes(idx);//执行下一个已ready的fd句柄
+                    close(idx);//执行下一个已ready的fd句柄
                     continue;
                 }
                 else
@@ -122,7 +122,7 @@ int main()
 
                     /* 发回客户端 */
                     write(idx, buf, readBytes);
-                    close(sockfd);
+                    sleep(5);
                 }
                 
             }

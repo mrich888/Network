@@ -138,7 +138,7 @@ int main()
     int acceptfd = 0;
     while (1)
     {
-        /* 局部变量不行 */
+        /* 局部变量到下一次循环的地方就会被释放 */
         socklen_t clientAddressLen = 0;
         acceptfd = accept(sockfd, (struct sockaddr *)&clientAddress, &clientAddressLen);
         if (acceptfd == -1)

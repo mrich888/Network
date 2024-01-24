@@ -10,7 +10,7 @@
 #include <signal.h>
 
 
-#define SERVER_PORT 6666
+#define SERVER_PORT 8888
 #define MAX_LISTEN 128
 #define SERVER_IPADDRESS "172.31.173.216"
 #define BUF_SIZE 128
@@ -48,19 +48,32 @@ int main()
     char buf[BUF_SIZE];
     memset(buf, 0, sizeof(buf));
 
+    int readBytes = 0;
     while (1)
     {
-      
-        strncpy(buf, "778899", sizeof(buf) - 1);
-        write(sockfd, buf, sizeof(buf));
+        printf("input:\n");
+        scanf("%s", buf);
+        write(sockfd, buf, strlen(buf) + 1);
 
-        read(sockfd, recvBuf, sizeof(recvBuf));
-        printf("recv:%s\n", recvBuf);
+        readBytes = read(sockfd, recvBuf, sizeof(recvBuf) - 1);
+        if (readBytes < 0)
+        {
+            perror("read error");
+            break;
+        }
+        else if (readBytes == 0)
+        {
+            perror("客户端断开....\n");
+            break;
+        }
+        else
+        {
+            printf("recv:%s\n", recvBuf);
+        }
+        
     
-        sleep(5);
     }
     
-
     close(sockfd);
   
 
