@@ -55,10 +55,14 @@ int main()
     FD_SET(sockfd, &readSet);
 
     int maxfd = sockfd;
+    fd_set tmpReadSet;
+    bzero(&tmpReadSet, sizeof(tmpReadSet));
     while (1)
     {
+        /* 备份读集合 */
+        tmpReadSet = readSet;
         /* 检测 */
-        ret = select(maxfd + 1, &readSet, NULL, NULL, NULL);
+        ret = select(maxfd + 1, &tmpReadSet, NULL, NULL, NULL);
         if (ret == -1)
         {
             perror("select error");
@@ -66,7 +70,7 @@ int main()
         }
         /* 如果sockfd在readset集合中，就一定有人来跟服务器通信了 */
         /* readSet需要持续迎宾 */
-        if (FD_ISSET(sockfd, &readSet))
+        if (FD_ISSET(sockfd, &tmpReadSet))
         {
             /* 接收 */
             int acceptfd = accept(sockfd, NULL, NULL);
@@ -85,7 +89,7 @@ int main()
         for (int  idx = 0; idx <= maxfd; idx++)
         {
             /* 如果不是本服务器的套接字并且还在readSet集合中，那一定有通信 */
-            if (idx != sockfd && FD_ISSET(idx, &readSet))
+            if (idx != sockfd && FD_ISSET(idx, &tmpReadSet))
             {
                 char buf[BUFSIZE];
                 bzero(buf, sizeof(buf));
@@ -122,10 +126,7 @@ int main()
                 }
                 
             }
-            
         }
-        
-        
     }
     
     /* 关闭文件描述符 */
