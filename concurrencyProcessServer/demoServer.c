@@ -1,122 +1,153 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <error.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <signal.h>
+#include <error.h>
 #include <pthread.h>
+#if 1
 #include "threadPool.h"
+#endif
+
+#define SERVER_PORT 8080
+#define MAX_LISTEN  128
+#define LOCAL_IPADDRESS "127.0.0.1"
+#define BUFFER_SIZE 128
 
 
-#define SERVER_PORT 6666
-#define MAX_LISTEN 128
-#define LOCAL_IPADDRESS " 127.0.0.1"
-#define BUF_SIZE 128
-#define MIN_THREADS     5
-#define MAX_THREADS     10
-#define QUEUE_CAPACITY  100
+#define MINTHREADS      5
+#define MAXTHREADS      10
+#define MAXQUEUESIZE    50
 
+/* 线程处理函数 */
 void * threadHandle(void *arg)
 {
-    /* 线程分离 */
+    /* 设置线程分离 */
     pthread_detach(pthread_self());
-    /* 设置通信句柄 */
+
+    /* 通信句柄. */
     int acceptfd = *(int *)arg;
-    
+
     /* 通信 */
-    char recvBuf[BUF_SIZE];//接收缓冲区
-    memset(recvBuf, 0, sizeof(recvBuf));
 
-    char sendBuf[BUF_SIZE];//发送缓冲区
-    memset(sendBuf, 0, sizeof(sendBuf));
+    /* 接收缓冲区 */
+    char recvbuffer[BUFFER_SIZE];
+    memset(recvbuffer, 0, sizeof(recvbuffer));
 
-    /* 接收读取到的字节数 */
+    /* 发送缓冲区 */
+    char sendBuffer[BUFFER_SIZE];
+    memset(sendBuffer, 0, sizeof(sendBuffer));
+
+    /* 读取到的字节数 */
     int readBytes = 0;
     while (1)
     {
-        readBytes = read(acceptfd, (void *)&recvBuf, sizeof(recvBuf));
-        if (readBytes <= 0)
+        readBytes = read(acceptfd, (void *)&recvbuffer, sizeof(recvbuffer));
+        if (readBytes < 0)
         {
-            perror("read error");
+            // perror("read eror");
+            printf("read error\n");
+            close(acceptfd);
+            break;
+        }
+        else if (readBytes == 0)
+        {
+            printf("read readBytes == 0\n");
             close(acceptfd);
             break;
         }
         else
         {
-           /* 读到的字符串 */
-            printf("buffer:%s\n", recvBuf);
-            if (strncmp(recvBuf, "123456", strlen("123456")) == 0)
+            /* 读到的字符串 */
+            printf("buffer:%s\n", recvbuffer);
+            if (strncmp(recvbuffer, "123456", strlen("123456")) == 0)
             {
-                strncpy(sendBuf, "一起加油123456", sizeof(sendBuf) - 1);
-                sleep(5);
-                write(acceptfd, sendBuf, sizeof(sendBuf));
+                strncpy(sendBuffer, "一起加油123456", sizeof(sendBuffer) - 1);
+                sleep(1);
+                write(acceptfd, sendBuffer, sizeof(sendBuffer));
             }
-            else if (strncmp(recvBuf, "778899", strlen("778899")) == 0)
+            else if (strncmp(recvbuffer, "778899", strlen("778899")) == 0)
             {
-                strncpy(sendBuf, "一起加油778899", sizeof(sendBuf) - 1);
-                sleep(5);
-                write(acceptfd, sendBuf, sizeof(sendBuf));
+                strncpy(sendBuffer, "一起加油778899", sizeof(sendBuffer) - 1);
+                sleep(1);
+                write(acceptfd, sendBuffer, sizeof(sendBuffer));
             }
-        }
+        }    
     }
+
     /* 线程退出 */
     pthread_exit(NULL);
-
 }
 
 
-// void sigHander(int sigNum)
-// {
+void sigHander(int sigNum)
+{
+    printf("ignore...\n");
 
-   
-// }
+    return;
+}
+
 
 int main()
 {
+#if 1
     /* 初始化线程池 */
     threadpool_t pool;
-    threadPoolInit(&pool, MIN_THREADS, MAX_LISTEN, QUEUE_CAPACITY);
-    
+    threadPoolInit(&pool, MINTHREADS, MAXTHREADS, MAXQUEUESIZE);
+#endif
 
-    // /*  信号注册 */
+    /* 信号注册 */
     // signal(SIGINT, sigHander);
     // signal(SIGQUIT, sigHander);
     // signal(SIGTSTP, sigHander);
-    /* 创建套接字 */
+
+    /* 信号注册 */
+    signal(SIGPIPE, sigHander);
+
+
+
+    /* 创建socket套接字 */
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
     {
-        perror("socker error");
+        perror("socket error");
         exit(-1);
     }
-    /* 端口复用 */
+
+    /* 设置端口复用 */
     int enableOpt = 1;
-    int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (void *)&enableOpt, sizeof(enableOpt)); 
+    int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (void *)&enableOpt, sizeof(enableOpt));
     if (ret == -1)
     {
         perror("setsockopt error");
         exit(-1);
     }
-    
+
     /* 绑定 */
+#if 0
+    /* 这个结构体不好用 */
+    struct sockaddr localAddress;
+#else
     struct sockaddr_in localAddress;
+#endif
+    /* 清除脏数据 */
     memset(&localAddress, 0, sizeof(localAddress));
+
     /* 地址族 */
     localAddress.sin_family = AF_INET;
     /* 端口需要转成大端 */
     localAddress.sin_port = htons(SERVER_PORT);
-    #if 1
     /* ip地址需要转成大端 */
-    /* 可以接受任何来源信息 */
-    localAddress.sin_addr.s_addr =  htonl(INADDR_ANY);
-    #else
-    inet_pton(AF_INET, "", &(localAddress.sin_addr.s_addr));
-    #endif
 
+    /* Address to accept any incoming messages.  */
+    /* INADDR_ANY = 0x00000000 */
+    localAddress.sin_addr.s_addr = htonl(INADDR_ANY); 
+
+    
     int localAddressLen = sizeof(localAddress);
     ret = bind(sockfd, (struct sockaddr *)&localAddress, localAddressLen);
     if (ret == -1)
@@ -124,7 +155,7 @@ int main()
         perror("bind error");
         exit(-1);
     }
-    
+
     /* 监听 */
     ret = listen(sockfd, MAX_LISTEN);
     if (ret == -1)
@@ -132,36 +163,46 @@ int main()
         perror("listen error");
         exit(-1);
     }
-    /* 客户信息 */
+
+    /* 客户的信息 */
     struct sockaddr_in clientAddress;
     memset(&clientAddress, 0, sizeof(clientAddress));
-    int acceptfd = 0;
+
+    
+    /* 循环去接收客户端的请求 */
     while (1)
     {
-        /* 局部变量到下一次循环的地方就会被释放 */
         socklen_t clientAddressLen = 0;
-        acceptfd = accept(sockfd, (struct sockaddr *)&clientAddress, &clientAddressLen);
+        /* 局部变量到下一次循环地方就会被释放. */
+        int acceptfd = accept(sockfd, (struct sockaddr *)&clientAddress, &clientAddressLen);
         if (acceptfd == -1)
         {
-            perror("accept error");
+            perror("accpet error");
             exit(-1);
         }
-    #if 0
-        /* 每个线程服务一个客户,来一个客户就开辟一个线程，但这种情况极其消耗资源 */
-        pthread_t pid;
-        ret = pthread_create(&pid, NULL, threadHandle, (void *)&acceptfd);
+#if 0
+        /* 这种情况每来一个客户端就开辟线程资源, 这种情况非常消耗资源 */
+        pthread_t tid;
+        /* 开一个线程去服务acceptfd */
+        ret = pthread_create(&tid, NULL, threadHandle, (void *)&acceptfd);
         if (ret != 0)
         {
-            perror("thread error");
+            perror("thread create error");
             exit(-1);
         }
-    #else
-        /* 添加任务到任务队列 */
-        threadPoolAddTask(&pool, threadHandle, (void *)&acceptfd);//acceptfd
-    #endif
-    }
+#else
+        /* 将任务添加任务队列 */
+        threadPoolAddTask(&pool, threadHandle, (void *)&acceptfd);
+#endif
+    } 
+
+#if 1
     /* 释放线程池 */
-    threadOPoolDestroy(&pool);
+    threadPoolDestroy(&pool);
+#endif
+
+
+    /* 关闭文件描述符 */
     close(sockfd);
 
     return 0;

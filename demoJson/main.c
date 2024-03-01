@@ -68,6 +68,38 @@ int main()
 
     int64_t val = json_object_get_int64(keyValue);
     printf("value:%ld\n", val);
+
+        printf("=====================demo server=======================\n");
+    /* 将字符串转化成json对象 */
+#if 0
+    // struct json_object * ageObj = json_object_new_string(str);
+#else
+    struct json_object * newJsonObj = json_tokener_parse(str);
+#endif
+
+    struct json_object * wayVal = json_object_object_get(newJsonObj, "way");
+    if (wayVal == NULL)
+    {
+        printf("get wayValue error\n");
+        exit(-1);
+    }
+
+    /* 解析int类型的json对象 */
+    printf("way:%ld\n", json_object_get_int64(wayVal));
+
+
+    struct json_object * nameVal = json_object_object_get(newJsonObj, "name");
+    if (nameVal == NULL)
+    {
+        perror("get nameVal error\n");
+        exit(-1);
+    }
+
+    printf("name:%s\n", json_object_get_string(nameVal));
+
+
+    /* 释放json对象 */
+    json_object_put(jsonObj);
 #endif
 
 

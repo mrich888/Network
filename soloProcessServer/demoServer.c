@@ -1,107 +1,77 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <error.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <signal.h>
+#include <error.h>
+#include <ctype.h>
 
-
-#define SERVER_PORT 6666
-#define MAX_LISTEN 128
-#define LOCAL_IPADDRESS " 127.0.0.1"
-#define BUF_SIZE 128
-
-void sigHander(int sigNum)
-{
-
-   
-}
+#define BUFFER_SIZE 128
+#define SERVER_PORT 9999
 
 int main()
 {
-
-    /*  信号注册 */
-    signal(SIGINT, sigHander);
-    signal(SIGQUIT, sigHander);
-    signal(SIGTSTP, sigHander);
-    /* 创建套接字 */
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    /* 创建套接字的句柄 */
+    int sockfd = socket(AF_INET, SOCK_DGRAM , 0);
     if (sockfd == -1)
     {
-        perror("socker error");
+        perror("socket error");
         exit(-1);
     }
-    
-    /* 绑定 */
-    struct sockaddr_in localAddress;
-    memset(&localAddress, 0, sizeof(localAddress));
-    /* 地址族 */
-    localAddress.sin_family = AF_INET;
-    /* 端口需要转成大端 */
-    localAddress.sin_port = htons(SERVER_PORT);
+
+    struct sockaddr_in sockAddress;
+    memset(&sockAddress, 0, sizeof(sockAddress));
+    sockAddress.sin_family = AF_INET;
+    sockAddress.sin_port = htons(SERVER_PORT);
     #if 1
-    /* ip地址需要转成大端 */
-    /* 可以接受任何来源信息 */
-    localAddress.sin_addr.s_addr =  htonl(INADDR_ANY);
+    sockAddress.sin_addr.s_addr = htonl(INADDR_ANY);
     #else
-    inet_pton(AF_INET, "", &(localAddress.sin_addr.s_addr));
+    inet_pton(AF_INET, "41.12.56.123", (void *)&sockAddress.sin_addr.s_addr);
     #endif
 
-    int localAddressLen = sizeof(localAddress);
-    int ret = bind(sockfd, (struct sockaddr *)&localAddress, localAddressLen);
+    int ret = bind(sockfd, (struct sockaddr *)&sockAddress, sizeof(sockAddress));
     if (ret == -1)
     {
         perror("bind error");
         exit(-1);
     }
-    
-    /* 监听 */
-    ret = listen(sockfd, MAX_LISTEN);
-    if (ret == -1)
-    {
-        perror("listen error");
-        exit(-1);
-    }
-    /* 客户信息 */
-    struct sockaddr_in clientAddress;
-    memset(&clientAddress, 0, sizeof(clientAddress));
 
-    socklen_t clientAddressLen = 0;
-    int acceptfd = accept(sockfd, (struct sockaddr *)&clientAddress, &clientAddressLen);
-    if (acceptfd == -1)
-    {
-        perror("accept error");
-    }
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
 
-    char buf[BUF_SIZE];
-    memset(buf, 0, sizeof(buf));
-    char replyBuf[BUF_SIZE];
-    memset(replyBuf, 0, sizeof(replyBuf));
     int readBytes = 0;
+    
+    struct sockaddr clientAddress;
+    memset(&clientAddress, 0, sizeof(clientAddress));
+    socklen_t clientAddressLen = sizeof(clientAddress);
     while (1)
     {
-        readBytes = read(acceptfd, buf, sizeof(buf));
-        if (readBytes <= 0)
+        readBytes = recvfrom(sockfd, buffer, sizeof(buffer), 0, &clientAddress, &clientAddressLen);
+        if (readBytes > 0)
         {
-            perror("read error");
-            close(acceptfd);
-            break;
+            printf("recv buffer:%s\n", buffer);
+            for (int idx = 0; idx < readBytes; idx++)
+            {
+                #if 0
+                if (buffer[idx] >= 'a' && buffer[idx] <= 'z')
+                {
+                    buffer[idx] -= 32;
+                }
+                #else
+                buffer[idx] = toupper(buffer[idx]);
+                #endif
+            }
         }
-        else
-        {
-            /*读到的字节数 */
-            printf("buf:%s\n", buf);
-            sleep(3);
-            strncpy(replyBuf, "一起加油", sizeof(replyBuf) - 1);
-            write(acceptfd, replyBuf, sizeof(replyBuf));
-        }
+        sendto(sockfd, buffer, sizeof(buffer), 0, &clientAddress, clientAddressLen);
     }
 
+    /* 关闭通信句柄 */
     close(sockfd);
+
 
     return 0;
 }
